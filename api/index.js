@@ -1,17 +1,47 @@
 const express = require('express');
 const admin = require('firebase-admin');
 const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize Firebase Admin SDK
-const serviceAccount = require('../serviceAccountKey.json'); // Replace with your Firebase service account JSON
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+// Log environment variables for debugging
+console.log('Initializing Firebase Admin SDK with the following credentials:');
+console.log({
+  type: process.env.FIREBASE_TYPE,
+  project_id: process.env.FIREBASE_PROJECT_ID,
+  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+  private_key: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : 'Not provided',
+  client_email: process.env.FIREBASE_CLIENT_EMAIL,
+  client_id: process.env.FIREBASE_CLIENT_ID,
+  auth_uri: process.env.FIREBASE_AUTH_URI,
+  token_uri: process.env.FIREBASE_TOKEN_URI,
+  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
 });
+
+// Initialize Firebase Admin SDK with environment variables
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      type: process.env.FIREBASE_TYPE,
+      project_id: process.env.FIREBASE_PROJECT_ID,
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+      private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Ensure newlines are correctly escaped
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: process.env.FIREBASE_CLIENT_ID,
+      auth_uri: process.env.FIREBASE_AUTH_URI,
+      token_uri: process.env.FIREBASE_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+      client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
+    }),
+  });
+  console.log('Firebase Admin SDK initialized successfully');
+} catch (error) {
+  console.error('Error initializing Firebase Admin SDK:', error);
+}
 
 const db = admin.firestore();
 
@@ -19,7 +49,7 @@ const db = admin.firestore();
 
 // POST route to create a new user
 app.post('/users', async (req, res) => {
-  const { userId, customUserId } = req.body; // Make sure you are sending these fields in the request body
+  const { userId, customUserId } = req.body;
 
   try {
     const usersRef = db.collection('users');
@@ -35,14 +65,12 @@ app.post('/users', async (req, res) => {
   }
 });
 
-
 // GET route to fetch all chats for a specific user
 app.get('/users/:userId/chats', async (req, res) => {
   const { userId } = req.params;
 
   try {
     const chatsRef = db.collection('chats');
-    
     const chatQuery1 = chatsRef.where('userId1', '==', userId);
     const chatQuery2 = chatsRef.where('userId2', '==', userId);
 
@@ -91,9 +119,9 @@ app.post('/chats', async (req, res) => {
       chatId = chatSnapshot.docs[0].id;
     }
 
-    res.status(200).json({ chatId });
+    res.status(200).json({ chatId, message: 'Chat created or fetched successfully' });
   } catch (error) {
-    res.status(500).json({ error: 'Error creating/fetching chat', message: error.message });
+    res.status(500).json({ error: 'Error creating or fetching chat', message: error.message });
   }
 });
 
@@ -145,6 +173,9 @@ app.post('/messages', async (req, res) => {
   }
 });
 
-app.listen(5000, () => console.log('Server running on http://localhost:5000'));
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
 
 module.exports = app;
